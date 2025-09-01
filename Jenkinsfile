@@ -2,44 +2,74 @@ pipeline {
     agent any
 
     environment {
-        ANSIBLE_INVENTORY = 'ansible/inventory.ini'
-        ANSIBLE_PLAYBOOK = 'ansible/deploy-attendance.yaml'
-        KUBECONFIG = '/home/jenkins/.kube/config'  // Adjust if needed
+        AWS_ACCESS_KEY_ID = credentials('aws-access-key-id')
+        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
+        AWS_DEFAULT_REGION = 'us-east-1'
+        KUBECONFIG = "${WORKSPACE}/.kube/config"
     }
 
     stages {
-        stage('Checkout Code') {
+        stage('Checkout') {
             steps {
-                checkout scm
+                git url: 'https://github.com/SyedRehanAli25/k8s-fullstack.git', branch: 'main'
             }
         }
 
-        stage('Deploy Attendance Service') {
+        stage('Terraform Init & Apply') {
             steps {
-                echo "Running Ansible playbook to deploy attendance service"
-                sh """
-                    ansible-playbook -i ${ANSIBLE_INVENTORY} ${ANSIBLE_PLAYBOOK}
-                """
+                dir('terraform') {
+                    sh 'terraform init'
+                    sh 'terraform apply -auto-approve'
+                }
+            }
+        }
+
+        stage('Configure Kubeconfig') {
+            steps {
+                echo 'Updating kubeconfig using workspace path...'
+                sh '''
+                    mkdir -p $WORKSPACE/.kube
+                    aws eks update-kubeconfig \
+                        --name k8s-oneclick-cluster \
+                        --region us-east-1 \
+                        --kubeconfig $WORKSPACE/.kube/config
+                '''
+            }
+        }
+
+        stage('Show Cluster Nodes') {
+            steps {
+                echo 'Waiting for cluster nodes to be ready...'
+                sh 'sleep 15'
+                sh 'kubectl get nodes -o wide'
+            }
+        }
+
+        stage('Ansible Deploy') {
+            steps {
+                dir('ansible') {
+                    sshagent(['k8s-oneclick-key']) {
+                        sh 'ansible-playbook -i inventory.ini deploy-attendance.yaml'
+                    }
+                }
             }
         }
 
         stage('Verify Deployment') {
             steps {
-                echo "Verifying pods and service status"
-                sh """
-                    kubectl get pods -n default -l app=attendance
-                    kubectl get svc -n default attendance
-                """
+                echo 'Checking deployed services and pods...'
+                sh 'kubectl get pods --all-namespaces'
+                sh 'kubectl get svc --all-namespaces'
             }
         }
     }
 
     post {
         success {
-            echo 'Deployment successful! Attendance service is up.'
+            echo ' Pipeline completed successfully! Cluster and app deployed.'
         }
         failure {
-            echo 'Deployment failed. Please check logs.'
+            echo ' Pipeline failed. Check logs above.'
         }
     }
 }
