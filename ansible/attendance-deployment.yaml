@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: attendance
+  namespace: default
+  labels:
+    app: attendance
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: attendance
+  template:
+    metadata:
+      labels:
+        app: attendance
+    spec:
+      containers:
+      - name: attendance
+        image: rehan2512/attendance:latest
+        args: ["--timeout", "60"]
+        ports:
+        - containerPort: 8081
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1"
+        readinessProbe:
+          httpGet:
+            path: /attendance/healthz
+            port: 8081
+          initialDelaySeconds: 20
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /attendance/healthz
+            port: 8081
+          initialDelaySeconds: 40
+          periodSeconds: 10

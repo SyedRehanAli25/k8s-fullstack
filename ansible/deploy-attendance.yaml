@@ -1,0 +1,18 @@
+---
+- name: Deploy attendance microservice on EKS cluster
+  hosts: localhost
+  connection: local
+  vars:
+    kubeconfig_path: "{{ lookup('env', 'KUBECONFIG') | default('~/.kube/config') }}"
+  tasks:
+    - name: Deploy attendance deployment
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        definition: "{{ lookup('file', 'attendance-deployment.yaml') }}"
+
+    - name: Deploy attendance service
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: present
+        definition: "{{ lookup('file', 'attendance-service.yaml') }}"
