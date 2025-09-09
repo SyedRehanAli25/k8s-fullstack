@@ -16,13 +16,12 @@ pipeline {
         stage('Terraform Init & Apply') {
             steps {
                 withCredentials([
-                    string(credentialsId: 'aws_access_key_id', variable: 'AWS_ACCESS_KEY_ID'),
-                    string(credentialsId: 'aws_secret_access_key', variable: 'AWS_SECRET_ACCESS_KEY')
+                    string(credentialsId: 'aws-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'aws-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
                     dir('terraform') {
                         sh '''
-                            #!/bin/bash
-                            echo "AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:0:4}****"
+                            echo "Using AWS credentials..."
                             terraform init
                             terraform apply -auto-approve
                         '''
@@ -35,16 +34,15 @@ pipeline {
             steps {
                 echo 'Updating kubeconfig using workspace path...'
                 withCredentials([
-                    string(credentialsId: 'aws_access_key_id', variable: 'AWS_ACCESS_KEY_ID'),
-                    string(credentialsId: 'aws_secret_access_key', variable: 'AWS_SECRET_ACCESS_KEY')
+                    string(credentialsId: 'aws-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'aws-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
                     sh '''
-                        #!/bin/bash
-                        mkdir -p "$WORKSPACE/.kube"
+                        mkdir -p $WORKSPACE/.kube
                         aws eks update-kubeconfig \
                             --name k8s-oneclick-cluster \
                             --region us-east-1 \
-                            --kubeconfig "$WORKSPACE/.kube/config"
+                            --kubeconfig $WORKSPACE/.kube/config
                     '''
                 }
             }
@@ -53,11 +51,8 @@ pipeline {
         stage('Show Cluster Nodes') {
             steps {
                 echo 'Waiting for cluster nodes to be ready...'
-                sh '''
-                    #!/bin/bash
-                    sleep 15
-                    kubectl get nodes -o wide
-                '''
+                sh 'sleep 15'
+                sh 'kubectl get nodes -o wide'
             }
         }
 
@@ -74,21 +69,18 @@ pipeline {
         stage('Verify Deployment') {
             steps {
                 echo 'Checking deployed services and pods...'
-                sh '''
-                    #!/bin/bash
-                    kubectl get pods --all-namespaces
-                    kubectl get svc --all-namespaces
-                '''
+                sh 'kubectl get pods --all-namespaces'
+                sh 'kubectl get svc --all-namespaces'
             }
         }
     }
 
     post {
         success {
-            echo 'Pipeline completed successfully! Cluster and app deployed.'
+            echo ' Pipeline completed successfully! Cluster and app deployed.'
         }
         failure {
-            echo 'Pipeline failed. Check logs above.'
+            echo ' Pipeline failed. Check logs above.'
         }
     }
 }
