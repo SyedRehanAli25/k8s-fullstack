@@ -2,8 +2,6 @@ pipeline {
     agent any
 
     environment {
-        AWS_ACCESS_KEY_ID = credentials('aws-access-key-id')
-        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
         AWS_DEFAULT_REGION = 'us-east-1'
         KUBECONFIG = "${WORKSPACE}/.kube/config"
     }
@@ -17,9 +15,17 @@ pipeline {
 
         stage('Terraform Init & Apply') {
             steps {
-                dir('terraform') {
-                    sh 'terraform init'
-                    sh 'terraform apply -auto-approve'
+                withCredentials([
+                    string(credentialsId: 'aws-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'aws-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+                    dir('terraform') {
+                        sh '''
+                            echo "AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:0:4}****"
+                            terraform init
+                            terraform apply -auto-approve
+                        '''
+                    }
                 }
             }
         }
@@ -27,13 +33,18 @@ pipeline {
         stage('Configure Kubeconfig') {
             steps {
                 echo 'Updating kubeconfig using workspace path...'
-                sh '''
-                    mkdir -p $WORKSPACE/.kube
-                    aws eks update-kubeconfig \
-                        --name k8s-oneclick-cluster \
-                        --region us-east-1 \
-                        --kubeconfig $WORKSPACE/.kube/config
-                '''
+                withCredentials([
+                    string(credentialsId: 'aws-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'aws-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+                    sh '''
+                        mkdir -p $WORKSPACE/.kube
+                        aws eks update-kubeconfig \
+                            --name k8s-oneclick-cluster \
+                            --region us-east-1 \
+                            --kubeconfig $WORKSPACE/.kube/config
+                    '''
+                }
             }
         }
 
@@ -66,10 +77,10 @@ pipeline {
 
     post {
         success {
-            echo ' Pipeline completed successfully! Cluster and app deployed.'
+            echo 'Pipeline completed successfully! Cluster and app deployed.'
         }
         failure {
-            echo ' Pipeline failed. Check logs above.'
+            echo 'Pipeline failed. Check logs above.'
         }
     }
 }
