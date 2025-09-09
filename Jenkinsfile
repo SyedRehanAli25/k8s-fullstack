@@ -21,6 +21,7 @@ pipeline {
                 ]) {
                     dir('terraform') {
                         sh '''
+                            #!/bin/bash
                             echo "AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:0:4}****"
                             terraform init
                             terraform apply -auto-approve
