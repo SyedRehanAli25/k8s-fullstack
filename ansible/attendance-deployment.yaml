@@ -18,25 +18,27 @@ spec:
       containers:
       - name: attendance
         image: rehan2512/attendance:latest
-        args: ["--timeout", "60"]
+        args: ["attendance_api:app", "--bind", "0.0.0.0:8081", "--timeout", "60"]
         ports:
         - containerPort: 8081
         resources:
           requests:
-            memory: "512Mi"
+            memory: "1Gi"
             cpu: "500m"
           limits:
-            memory: "1Gi"
+            memory: "2Gi"
             cpu: "1"
         readinessProbe:
           httpGet:
             path: /attendance/healthz
             port: 8081
-          initialDelaySeconds: 20
-          periodSeconds: 5
+          initialDelaySeconds: 60
+          timeoutSeconds: 5
+          periodSeconds: 10
         livenessProbe:
           httpGet:
             path: /attendance/healthz
             port: 8081
-          initialDelaySeconds: 40
-          periodSeconds: 10
+          initialDelaySeconds: 90
+          timeoutSeconds: 5
+          periodSeconds: 15
